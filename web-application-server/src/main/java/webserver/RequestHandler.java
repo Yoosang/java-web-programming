@@ -41,10 +41,21 @@ public class RequestHandler extends Thread {
         	String url = token[1]; 
         	log.debug("request url : {}", url);		//url debug
         	
+        	Map<String, String> headers = new HashMap<String, String>();
+    		while(!"".equals(line)) {
+    			log.debug("HTTP Header : {}", line); 
+    			line = br.readLine(); 
+    			String[] headerTokens = line.split(": ");
+    			if(headerTokens.length == 2) {
+    				headers.put(headerTokens[0], headerTokens[1]);
+    			}
+    		}
+    		log.debug("Content-Length : {}", headers.get("Content-Length"));
+        	
         	if(url.startsWith("/user/create")) {
-        		int idx = url.indexOf("?");
-            	String params = url.substring(idx+1);
-        		Map<String, String> userInfo = util.HttpRequestUtils.parseQueryString(params);
+        		String reqBody = util.IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
+        		log.debug("request body : {}", reqBody);
+        		Map<String, String> userInfo = util.HttpRequestUtils.parseQueryString(reqBody);
             	User newUser = new User(userInfo.get("userId") , userInfo.get("password"), userInfo.get("name"), userInfo.get("email")); 	
             	log.debug("User info : {}", newUser.toString());
             	url = "/index.html"; 
