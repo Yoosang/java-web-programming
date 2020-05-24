@@ -15,6 +15,7 @@ import java.io.File;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import db.DataBase;
 import model.User;
 
 public class RequestHandler extends Thread {
@@ -44,7 +45,7 @@ public class RequestHandler extends Thread {
         	
         	Map<String, String> headers = new HashMap<String, String>();
     		while(!"".equals(line)) {
-    			log.debug("HTTP Header : {}", line); 
+    			//log.debug("HTTP Header : {}", line); 
     			line = br.readLine(); 
     			String[] headerTokens = line.split(": ");
     			if(headerTokens.length == 2) {
@@ -57,9 +58,30 @@ public class RequestHandler extends Thread {
         		String reqBody = util.IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
         		log.debug("request body : {}", reqBody);
         		Map<String, String> userInfo = util.HttpRequestUtils.parseQueryString(reqBody);
-            	User newUser = new User(userInfo.get("userId") , userInfo.get("password"), userInfo.get("name"), userInfo.get("email")); 	
+            	User newUser = new User(userInfo.get("userId") , userInfo.get("password"), userInfo.get("name"), userInfo.get("email"));
+            	DataBase.addUser(newUser);
             	log.debug("User info : {}", newUser.toString());
             	response302Header(dos);
+        	}
+        	else if(url.equals("/user/login")) {
+        		String reqBody = util.IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
+        		log.debug("request body : {}", reqBody);
+        		Map<String, String> userInfo = util.HttpRequestUtils.parseQueryString(reqBody);
+        		log.debug("User Id : {}, User Password : {}", userInfo.get("userId"), userInfo.get("password"));
+        		User loginUser = DataBase.findUserById(userInfo.get("userId"));
+        		
+        		if(loginUser == null) {
+        			log.debug("User not found!");
+        			response302HeaderWithCookie(dos, "logined=false");
+        		}
+        		else if(!loginUser.getPassword().equals(userInfo.get("password"))) {
+        			log.debug("Password Mismatch!");
+        			response302HeaderWithCookie(dos, "logined=false");
+        		}
+        		else {
+        			log.debug("Login Success");
+        			response302HeaderWithCookie(dos, "logined=true");
+        		}
         	}
         	else {
             	byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
@@ -71,6 +93,22 @@ public class RequestHandler extends Thread {
         }
     }
 
+    private void response302HeaderWithCookie(DataOutputStream dos, String cookie) {
+    	try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            if("logined=false".equals(cookie)) {
+            	dos.writeBytes("Location: login_failed.html\r\n");
+            }
+            else {
+            	dos.writeBytes("Location: /index.html\r\n");
+            }
+            dos.writeBytes("Set Cookie: " + cookie + "\r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+    
     private void response302Header(DataOutputStream dos) {
     	try {
             dos.writeBytes("HTTP/1.1 302 Found \r\n");
