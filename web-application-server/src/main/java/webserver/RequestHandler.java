@@ -8,6 +8,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.io.File;
@@ -42,6 +43,7 @@ public class RequestHandler extends Thread {
         	String[] token = line.split(" ");
         	String url = token[1]; 
         	log.debug("request url : {}", url);		//url debug
+        	boolean logined = false;
         	
         	Map<String, String> headers = new HashMap<String, String>();
     		while(!"".equals(line)) {
@@ -50,6 +52,9 @@ public class RequestHandler extends Thread {
     			String[] headerTokens = line.split(": ");
     			if(headerTokens.length == 2) {
     				headers.put(headerTokens[0], headerTokens[1]);
+    			}
+    			if(line.contains("Cookie")) {
+    				logined=true;
     			}
     		}
     		log.debug("Content-Length : {}", headers.get("Content-Length"));
@@ -83,8 +88,21 @@ public class RequestHandler extends Thread {
         			response302HeaderWithCookie(dos, "logined=true");
         		}
         	}
-        	else if(url.equals("user/list")) {
-        		//TODO user 목록 보여주기!
+        	else if(url.equals("/user/list")) {
+        		Collection<User> users = DataBase.findAll();
+                StringBuilder sb = new StringBuilder();
+                sb.append("<table border='1'>");
+                for (User user : users) {
+                    sb.append("<tr>");
+                    sb.append("<td>" + user.getUserId() + "</td>");
+                    sb.append("<td>" + user.getName() + "</td>");
+                    sb.append("<td>" + user.getEmail() + "</td>");
+                    sb.append("</tr>");
+                }
+                sb.append("</table>");
+                byte[] body = sb.toString().getBytes();
+                response200Header(dos, body.length);
+                responseBody(dos, body);
         	}
         	else if(url.endsWith(".css")) {
         		byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
