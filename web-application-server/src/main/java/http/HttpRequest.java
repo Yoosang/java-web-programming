@@ -25,32 +25,39 @@ public class HttpRequest {
 		try {
 			BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));
 			String line = br.readLine();
-			
 			if(line == null) {
 				return;
 			}
 			
 			String[] token = line.split(" ");
-			this.method = token[0];
-			splitUrlParams(token[1]);
 			
-			while(!"".equals(line)) {
-				line = br.readLine();
+			//set method
+			this.method = token[0];
+			
+			//set header
+			while(!"".equals(line = br.readLine())) {
 				String[] headerToken = line.split(": ");
 				header.put(headerToken[0], headerToken[1]);
 			}
+			
+			//set path and params
+			String paramStr;
+			if(token[1].contains("?")) {
+				paramStr = token[1].substring(token[1].indexOf("?") + 1,token[1].length());
+				token[1] = token[1].substring(0, token[1].indexOf("?"));
+			}
+			else {
+				paramStr = util.IOUtils.readData(br, Integer.parseInt(header.get("Content-Length")));
+			}
+			this.path = token[1];
+			this.params = util.HttpRequestUtils.parseQueryString(paramStr);
+			
 		}
 		catch(Exception e) {
 			log.error(e.getMessage());
 		}
 	}
-		
-	private void splitUrlParams(String str) {
-		String[] splitedStr = str.split("\\?");
-		this.path = splitedStr[0];
-		params = util.HttpRequestUtils.parseQueryString(splitedStr[1]);
-	}
-	
+
 	public String getMethod() {
 		return this.method;
 	}
@@ -60,11 +67,11 @@ public class HttpRequest {
 	}
 	
 	public String getHeader(String key) {
-		return header.get(key);
+		return this.header.get(key);
 	}
 	
 	public String getParameter(String key) {
-		return params.get(key);
+		return this.params.get(key);
 	}
 	
 }
