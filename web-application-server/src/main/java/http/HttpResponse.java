@@ -21,6 +21,7 @@ public class HttpResponse {
 		dos = new DataOutputStream(out);
 	}
 	
+	
 	public void addHeader(String key, String value) {
 		headers.put(key, value);
 	}

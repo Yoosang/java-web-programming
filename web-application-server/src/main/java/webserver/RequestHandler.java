@@ -17,6 +17,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import db.DataBase;
+import http.HttpRequest;
+import http.HttpResponse;
+import jdk.nashorn.internal.ir.RuntimeNode.Request;
 import model.User;
 
 public class RequestHandler extends Thread {
@@ -33,7 +36,36 @@ public class RequestHandler extends Thread {
                 connection.getPort());
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
-            // TODO 사용자 요청에 대한 처리는 이 곳에 구현하면 된다.
+        	HttpRequest request = new HttpRequest(in);
+        	HttpResponse response = new HttpResponse(out);
+        	String path = request.getPath();
+        	
+        	if("/user/create".equals(path)) {
+        		User user = new User(
+        				request.getParameter("userId"),
+        				request.getParameter("password"),
+        				request.getParameter("name"),
+        				request.getParameter("email"));
+        		log.debug("user: {}", user);
+        		DataBase.addUser(user);
+        		response.sendRedirect("/index.html");
+        	}
+        	else if("/user/login".equals(path)) {
+        		User user = DataBase.findUserById(request.getParameter("userId"));
+        		if(user != null) {
+        			if(user.login(request.getParameter("password"))) {
+        				response.addHeader("Set-Cookie", "logined=true");
+        				response.sendRedirect("/index.html");
+        			}
+        			else {
+        				response.sendRedirect("/user/logined_failed.html");
+        			}
+        		}
+        		else {
+        			response.sendRedirect("/user/logined_failed.html");
+        		}
+        	}
+        	
         	BufferedReader br = new BufferedReader(new InputStreamReader(in,"UTF-8"));
         	DataOutputStream dos = new DataOutputStream(out);
         	String line = br.readLine();	
@@ -118,6 +150,7 @@ public class RequestHandler extends Thread {
             log.error(e.getMessage());
         }
     }
+    
 
     private void response302HeaderWithCookie(DataOutputStream dos, String cookie) {
     	try {

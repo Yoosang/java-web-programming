@@ -1,18 +1,18 @@
 package http;
 
 import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.Socket;
 
 import java.util.Map;
 import java.util.HashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class HttpRequest {	
 	private static final Logger log = LoggerFactory.getLogger(HttpRequest.class);
@@ -29,32 +29,42 @@ public class HttpRequest {
 				return;
 			}
 			
-			String[] token = line.split(" ");
-			
-			//set method
-			this.method = token[0];
+			processRequestLine(line);
 			
 			//set header
 			while(!"".equals(line = br.readLine())) {
-				String[] headerToken = line.split(": ");
-				header.put(headerToken[0], headerToken[1]);
+				log.debug("header : {}", line);
+				String[] headerToken = line.split(":");
+				header.put(headerToken[0].trim(), headerToken[1].trim());
 			}
 			
-			//set path and params
-			String paramStr;
-			if(token[1].contains("?")) {
-				paramStr = token[1].substring(token[1].indexOf("?") + 1,token[1].length());
-				token[1] = token[1].substring(0, token[1].indexOf("?"));
+			if("POST".equals(method)) {
+				String body = IOUtils.readData(br, Integer.parseInt(header.get("Content-Length")));
+				this.params = HttpRequestUtils.parseQueryString(body); 
 			}
-			else {
-				paramStr = util.IOUtils.readData(br, Integer.parseInt(header.get("Content-Length")));
-			}
-			this.path = token[1];
-			this.params = util.HttpRequestUtils.parseQueryString(paramStr);
-			
 		}
-		catch(Exception e) {
+		catch(IOException e) {
 			log.error(e.getMessage());
+		}
+	}
+	
+	private void processRequestLine(String requestLine) {
+		log.debug("request line : {}", requestLine);
+		String[] tokens = requestLine.split(" ");
+		this.method = tokens[0];
+		
+		if("POST".equals(method)) {
+			this.path = tokens[1];
+			return;
+		}
+		
+		int index = tokens[1].indexOf("?");
+		if(index == -1) {
+			this.path = tokens[1];
+		}
+		else {
+			this.path = tokens[1].substring(0, index);
+			this.params = HttpRequestUtils.parseQueryString(tokens[1].substring(index+1));
 		}
 	}
 
